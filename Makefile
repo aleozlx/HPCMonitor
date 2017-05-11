@@ -8,7 +8,7 @@ run: HPCMonitor.py mainwindow.py
 	$(PYTHON) $<
 
 clean:
-	rm mainwindow.py
+	rm -f mainwindow.py
 
 mainwindow.py: mainwindow.ui
 	$(PYUIC) -o $@ $^
