@@ -7,11 +7,7 @@
 #include <cstdlib>
 #include <ctime>
 
-extern "C" {
-#include <unistd.h>
-}
-
-// clang++ -std=c++11 -Wall -O2 -o build/test test.cpp -lstdc++ -lboost_thread -lpthread -lboost_filesystem -lboost_system
+// clang++ -std=c++11 -Wall -O2 -o build/mem mem.cpp -lstdc++ -lboost_thread -lpthread -lboost_filesystem -lboost_system
 
 typedef struct {
 	char level; char type;
