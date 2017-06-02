@@ -6,6 +6,7 @@
 #include <string.h>
 #include <sys/mman.h>
 
+// clang -Wall -O2 -o build/cache cache.c
 
 int i386_cpuid_caches (size_t * data_caches) {
     int i;
