@@ -12,6 +12,12 @@ typedef struct {
 	std::size_t size, line, partitions, associativity, sets, threads, cores;
 } cache_info_t;
 
+typedef struct {
+	boost::thread *handle;
+	char *local_buffer;
+	std::size_t ret;
+} thread_rc;
+
 static std::size_t N_THREADS;
 static std::size_t MEM_LIMIT = 2ul << 30;
 static std::size_t BLK_SZ = 8 << 20;
@@ -61,23 +67,31 @@ int main(int argc, char *argv[]){
 	std::cout<<"Writing to "<<((MEM_LIMIT*N_THREADS)>>20)<<"MiB block with "<<
 		N_THREADS<<" threads (BLK_SZ = "<<(BLK_SZ>>20)<<"MiB)..."<<std::endl;
 
-	char **buffer = new char*[N_THREADS];
-	for(std::size_t i=0;i<N_THREADS;++i)
-		buffer[i] = new char[MEM_LIMIT];
-	int const *BLOCK = new int[BLK_SZ];
 	std::srand(std::time(0));
+	int const *BLOCK = new int[BLK_SZ];
+	thread_rc threads[N_THREADS];
+	for(std::size_t i=0;i<N_THREADS;++i)
+		threads[i].local_buffer = new char[MEM_LIMIT];
 
-	boost::thread *children[N_THREADS];
+	auto t1 = std::chrono::high_resolution_clock::now();
 	for(std::size_t i=0;i<N_THREADS;++i){
-		children[i] = new boost::thread([&,i](){
-			for(int k=0;k<((MEM_LIMIT/BLK_SZ)<<5);++k){
+		threads[i].handle = new boost::thread([&,i](){
+			std::size_t k = 0;
+			for(;k<((MEM_LIMIT/BLK_SZ)<<5);++k){
 				int random_block = std::rand()%(MEM_LIMIT-BLK_SZ);
-				std::memcpy(buffer[i]+random_block, BLOCK, BLK_SZ);
+				std::memcpy(threads[i].local_buffer+random_block, BLOCK, BLK_SZ);
 			}
+			threads[i].ret = k * BLK_SZ;
 		});
 	}
-	for(std::size_t i=0;i<N_THREADS;++i)
-		children[i]->join();
-	std::cout<<"Randam access"<<std::endl;
+	std::size_t total_size = 0;
+	for(std::size_t i=0;i<N_THREADS;++i){
+		threads[i].handle->join();
+		total_size += threads[i].ret;
+	}
+	auto t2 = std::chrono::high_resolution_clock::now();
+	std::chrono::duration<double, std::milli> time_ra = t2 - t1;
+	std::cout<<"Randam access "<<time_ra.count()<<"ms @ "<<
+		static_cast<float>(total_size>>20)/time_ra.count()*1000.f<<"MiB/s"<<std::endl;
 	return 0;
 }
