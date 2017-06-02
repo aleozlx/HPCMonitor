@@ -7,7 +7,7 @@
 #include <pthread.h>
 #include <sys/time.h>
 
-// clang -std=c99 -Wall -O2 -o build/mem mem.c -lpthread
+// clang -Wall -O2 -o build/mem mem.c -lpthread
 
 typedef struct {
 	char level; char type;
