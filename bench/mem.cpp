@@ -56,7 +56,6 @@ void init(int argc, char *argv[]){
 			" threads"<<cache.threads<<" cores"<<cache.cores<<')'<<std::endl;
 
 	if(argc > 1){
-		std::cout<<sizeof(std::size_t)<<std::endl;
 		int tmp = atoi(argv[1]);
 		if(tmp > 0) MEM_LIMIT = static_cast<std::size_t>(tmp) << 20;
 	}
