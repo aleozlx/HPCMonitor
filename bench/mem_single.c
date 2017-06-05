@@ -53,66 +53,42 @@ void init(int argc, char *argv[]){
 
 void ramdom_write(size_t BLK_SZ){
 	printf("Writing to %zuMiB block with (BLK_SZ = %zuKiB)\n", (MEM_LIMIT>>20), (BLK_SZ>>10));
-
 	char *local_buffer = (char*)malloc(MEM_LIMIT);
-
 	struct timeval t1;
 	gettimeofday(&t1, NULL);
-
 	size_t k = 0;
 	for(;k<((MEM_LIMIT/BLK_SZ)<<4);++k){
 		int random_block = rand()%(MEM_LIMIT-BLK_SZ);
 		memset(local_buffer+random_block, 0xAA, BLK_SZ);
+		++local_buffer[random_block]; // prevent memset optimization
 	}
-
 	size_t total_size = k * BLK_SZ;
+	printf("%zu\n", total_size);
 	free(local_buffer);
-
 	struct timeval t2;
 	gettimeofday(&t2, NULL);
 	uint64_t time_ra = 1000 * (t2.tv_sec - t1.tv_sec) + (t2.tv_usec - t1.tv_usec) / 1000;
 	printf("  %zums @ %fMiB/s\n", time_ra, ((float)(total_size>>20))/time_ra*1000.f);
 }
 
-// void* task_read(void *args){
-// #define BLK_SZ __BLK_SZ
-// 	thread_rc *_this = (thread_rc*)args;
-// 	char private_buffer[BLK_SZ];
-// 	size_t k = 0;
-// 	for(;k<((MEM_LIMIT/BLK_SZ)<<4);++k){
-// 		int random_block = rand()%(MEM_LIMIT-BLK_SZ);
-// 		memcpy(private_buffer, _this->local_buffer+random_block, BLK_SZ);
-// 	}
-// 	_this->ret = k * BLK_SZ;
-// #undef BLK_SZ
-// 	return NULL;
-// }
-
-// void ramdom_read(size_t BLK_SZ){
-// 	__BLK_SZ = BLK_SZ;
-// 	printf("Reading from %zuMiB block with %zu threads (BLK_SZ = %zuB)\n", 
-// 		((MEM_LIMIT*N_THREADS)>>20), N_THREADS, (BLK_SZ));
-
-// 	thread_rc threads[N_THREADS];
-// 	for(size_t i=0;i<N_THREADS;++i)
-// 		threads[i].local_buffer = (char*)malloc(MEM_LIMIT);
-
-// 	struct timeval t1;
-// 	gettimeofday(&t1, NULL);
-// 	for(size_t i=0;i<N_THREADS;++i)
-// 		pthread_create(&threads[i].handle, NULL, task_read, &threads[i]);
-
-// 	size_t total_size = 0;
-// 	for(size_t i=0;i<N_THREADS;++i){
-// 		pthread_join(threads[i].handle, NULL);
-// 		free(threads[i].local_buffer);
-// 		total_size += threads[i].ret;
-// 	}
-// 	struct timeval t2;
-// 	gettimeofday(&t2, NULL);
-// 	uint64_t time_ra = 1000 * (t2.tv_sec - t1.tv_sec) + (t2.tv_usec - t1.tv_usec) / 1000;
-// 	printf("  %zums @ %fGiB/s\n", time_ra, ((float)(total_size>>30))/time_ra*1000.f);
-// }
+void ramdom_read(size_t BLK_SZ){
+	printf("Reading from %zuMiB block (BLK_SZ = %zuB)\n", ((MEM_LIMIT)>>20), (BLK_SZ));
+	char *local_buffer = (char*)malloc(MEM_LIMIT);
+	struct timeval t1;
+	gettimeofday(&t1, NULL);
+	char private_buffer[BLK_SZ];
+	size_t k = 0;
+	for(;k<((MEM_LIMIT/BLK_SZ)<<4);++k){
+		int random_block = rand()%(MEM_LIMIT-BLK_SZ);
+		memcpy(private_buffer, local_buffer+random_block, BLK_SZ); // TODO ensure no optimization
+	}
+	size_t total_size = k * BLK_SZ;
+	free(local_buffer);
+	struct timeval t2;
+	gettimeofday(&t2, NULL);
+	uint64_t time_ra = 1000 * (t2.tv_sec - t1.tv_sec) + (t2.tv_usec - t1.tv_usec) / 1000;
+	printf("  %zums @ %fGiB/s\n", time_ra, ((float)(total_size>>30))/time_ra*1000.f);
+}
 
 int main(int argc, char *argv[]){
 	init(argc, argv);
@@ -124,12 +100,12 @@ int main(int argc, char *argv[]){
 	ramdom_write(2 << 10);
 	ramdom_write(1 << 10);
 
-	// ramdom_read(512 << 10);
-	// ramdom_read(8 << 10);
-	// ramdom_read(4 << 10);
-	// ramdom_read(2 << 10);
-	// ramdom_read(1 << 10);
-	// ramdom_read(256);
+	ramdom_read(512 << 10);
+	ramdom_read(8 << 10);
+	ramdom_read(4 << 10);
+	ramdom_read(2 << 10);
+	ramdom_read(1 << 10);
+	ramdom_read(256);
 
 	return 0;
 }
