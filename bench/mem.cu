@@ -12,6 +12,8 @@
 // nvcc -std=c++11 --compiler-options -Wall -O2 -gencode arch=compute_60,code=compute_60 -o build/vmem mem.cu
 // see also http://llvm.org/docs/CompileCudaWithLLVM.html
 // ref: https://devblogs.nvidia.com/parallelforall/how-implement-performance-metrics-cuda-cc/
+//      http://docs.nvidia.com/cuda/cuda-runtime-api/#axzz4jNvlr4KG
+//      https://developer.nvidia.com/cuda-code-samples
 
 // typedef struct {
 // 	boost::shared_ptr<boost::thread> handle;
