@@ -47,6 +47,15 @@ void init(int argc, char *argv[]){
 	std::srand(std::time(0));
 }
 
+__global__ void kernel_dummy(double * dev_array_sums){
+	std::size_t k = 0;
+	for(;k<((MEM_LIMIT/BLK_SZ)<<4);++k){
+		int random_block = std::rand()%(MEM_LIMIT-BLK_SZ);
+		std::memset(threads[i].local_buffer+random_block, 0xAA, BLK_SZ);
+	}
+	threads[i].ret = k * BLK_SZ;
+}
+
 void ramdom_write(std::size_t BLK_SZ){
 	std::cout<<"Writing to "<<((MEM_LIMIT*N_THREADS)>>20)<<"MiB block with "<<
 		N_THREADS<<" threads (BLK_SZ = "<<(BLK_SZ>>10)<<"KiB)..."<<std::endl;
