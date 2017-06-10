@@ -18,19 +18,25 @@ nvcc -std=c++11 --compiler-options -Wall -O2 \
 	-gencode arch=compute_60,code=sm_60 \
 	-gencode arch=compute_61,code=sm_61 \
 	-gencode arch=compute_61,code=compute_61 \
-	-o build/vmem mem.cu && build/vmem
+	-o build/vmem mem.cu
 */
 
-// see also http://llvm.org/docs/CompileCudaWithLLVM.html
+/* see also http://llvm.org/docs/CompileCudaWithLLVM.html
+clang++ -std=c++11 -Wall -O2 \
+	--cuda-gpu-arch=sm_30 \
+	--cuda-gpu-arch=sm_35 \
+	--cuda-gpu-arch=sm_50 \
+	--cuda-gpu-arch=sm_52 \
+	--cuda-gpu-arch=sm_60 \
+	--cuda-gpu-arch=sm_61 \
+	-o build/vmem mem.cu \
+	-L/usr/local/cuda/lib64 \
+	-lcudart_static -ldl -lrt -pthread
+*/
+
 // ref: https://devblogs.nvidia.com/parallelforall/how-implement-performance-metrics-cuda-cc/
 //      http://docs.nvidia.com/cuda/cuda-runtime-api/#axzz4jNvlr4KG
 //      https://developer.nvidia.com/cuda-code-samples
-
-// typedef struct {
-// 	boost::shared_ptr<boost::thread> handle;
-// 	char *local_buffer;
-// 	std::size_t ret;
-// } thread_rc;
 
 static std::size_t N_THREADS;
 static std::size_t MEM_LIMIT = 2ul << 30;
