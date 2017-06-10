@@ -9,7 +9,18 @@
 #include <device_launch_parameters.h>
 #include <device_functions.h>
 
-// nvcc -std=c++11 --compiler-options -Wall -O2 -gencode arch=compute_60,code=compute_60 -o build/vmem mem.cu
+/*
+nvcc -std=c++11 --compiler-options -Wall -O2 \
+	-gencode arch=compute_30,code=sm_30 \
+	-gencode arch=compute_35,code=sm_35 \
+	-gencode arch=compute_50,code=sm_50 \
+	-gencode arch=compute_52,code=sm_52 \
+	-gencode arch=compute_60,code=sm_60 \
+	-gencode arch=compute_61,code=sm_61 \
+	-gencode arch=compute_61,code=compute_61 \
+	-o build/vmem mem.cu && build/vmem
+*/
+
 // see also http://llvm.org/docs/CompileCudaWithLLVM.html
 // ref: https://devblogs.nvidia.com/parallelforall/how-implement-performance-metrics-cuda-cc/
 //      http://docs.nvidia.com/cuda/cuda-runtime-api/#axzz4jNvlr4KG
@@ -38,6 +49,8 @@ void init(int argc, char *argv[]){
 		}
 	}
 
+	N_THREADS = 32;
+
 	if(argc > 1){
 		int tmp = atoi(argv[1]);
 		if(tmp > 0) MEM_LIMIT = static_cast<std::size_t>(tmp) << 20;
@@ -47,6 +60,14 @@ void init(int argc, char *argv[]){
 	std::srand(std::time(0));
 }
 
+#define cudaCheck(ans) { gpuAssert((ans), __FILE__, __LINE__); }
+inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=true) {
+   if (code != cudaSuccess) {
+      fprintf(stderr,"GPUassert: %s %s %d\n", cudaGetErrorString(code), file, line);
+      if (abort) exit(code);
+   }
+}
+
 __global__ void kernel_dummy(float *_buffer, std::size_t *_ret, std::size_t MEM_LIMIT){
 	// std::size_t k = 0;
 	// for(;k<((MEM_LIMIT/BLK_SZ)<<4);++k){
@@ -54,11 +75,11 @@ __global__ void kernel_dummy(float *_buffer, std::size_t *_ret, std::size_t MEM_
 	// 	std::memset(threads[i].local_buffer+random_block, 0xAA, BLK_SZ);
 	// }
 
-	_ret[threadIdx.x] = 1024;
+	_ret[threadIdx.x] = 1;
 }
 
 __global__ void kernel_sum_ret(std::size_t *_ret){
-	extern __shared__ int sdata[];
+	extern __shared__ std::size_t sdata[];
 	sdata[threadIdx.x] = _ret[blockIdx.x * blockDim.x + threadIdx.x];
 	__syncthreads();
 
@@ -81,13 +102,13 @@ void ramdom_write(std::size_t BLK_SZ){
 	kernel_dummy<<<1, N_THREADS>>>(_buffer, _ret, MEM_LIMIT);
 	cudaDeviceSynchronize();
 	auto t2 = std::chrono::high_resolution_clock::now();
-	kernel_sum_ret<<<1, N_THREADS>>>(_ret);
+	kernel_sum_ret<<<1, N_THREADS, N_THREADS*sizeof(std::size_t)>>>(_ret);
 	std::size_t total_size = 0;
-	cudaMemcpyFromSymbol(&total_size, _ret, sizeof(std::size_t));
+	cudaCheck(cudaMemcpy(&total_size, _ret, sizeof(std::size_t), cudaMemcpyDeviceToHost));
 	std::cout<<"total_size="<<total_size<<std::endl;
 	std::chrono::duration<double, std::milli> time_ra = t2 - t1;
 	std::cout<<"  "<<time_ra.count()<<"ms @ "<<
-		static_cast<float>(total_size>>20)/time_ra.count()*1000.f<<"MiB/s"<<std::endl;
+		static_cast<float>(total_size>>30)/time_ra.count()*1000.f<<"GiB/s"<<std::endl;
 	cudaFree(_buffer);
 	cudaFree(_ret);
 }
