@@ -2,10 +2,12 @@
 #include <chrono>
 #include <vector>
 #include <cstdlib>
+#include <cstring>
 #include <ctime>
 #include <cuda.h>
 #include <cuda_runtime.h>
 #include <cuda_runtime_api.h>
+#include <curand_kernel.h>
 #include <device_launch_parameters.h>
 #include <device_functions.h>
 
@@ -63,25 +65,29 @@ void init(int argc, char *argv[]){
 	}
 
 	MEM_LIMIT /= N_THREADS;
-	std::srand(std::time(0));
 }
 
 #define cudaCheck(ans) { gpuAssert((ans), __FILE__, __LINE__); }
 inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=true) {
    if (code != cudaSuccess) {
-      fprintf(stderr,"GPUassert: %s %s %d\n", cudaGetErrorString(code), file, line);
-      if (abort) exit(code);
+	  fprintf(stderr,"GPUassert: %s %s %d\n", cudaGetErrorString(code), file, line);
+	  if (abort) exit(code);
    }
 }
 
-__global__ void kernel_dummy(float *_buffer, std::size_t *_ret, std::size_t MEM_LIMIT){
-	// std::size_t k = 0;
-	// for(;k<((MEM_LIMIT/BLK_SZ)<<4);++k){
-	// 	int random_block = std::rand()%(MEM_LIMIT-BLK_SZ);
-	// 	std::memset(threads[i].local_buffer+random_block, 0xAA, BLK_SZ);
-	// }
+__global__ void kernel_dummy(char *_buffer, std::size_t *_ret, std::size_t const MEM_LIMIT, std::size_t const BLK_SZ){
+	curandState localState;
+	curand_init(1234, threadIdx.x, 0, &localState);
+	float *local_buffer = reinterpret_cast<float*>(_buffer+threadIdx.x*MEM_LIMIT);
+	float const val = 2.71828f;
+	std::size_t k = 0;
+	for(;k<((MEM_LIMIT/BLK_SZ));++k){
+		std::size_t random_block = static_cast<std::size_t>(curand_uniform(&localState) * ((MEM_LIMIT-BLK_SZ)/sizeof(float)));
+		for(std::size_t p = 0;p<(MEM_LIMIT/sizeof(float));++p) // TODO BLK_SZ
+			(local_buffer+random_block)[p] = val;
+	}
 
-	_ret[threadIdx.x] = 1;
+	_ret[threadIdx.x] = k*BLK_SZ;
 }
 
 __global__ void kernel_sum_ret(std::size_t *_ret){
@@ -101,11 +107,11 @@ void ramdom_write(std::size_t BLK_SZ){
 	std::cout<<"Writing to "<<((MEM_LIMIT*N_THREADS)>>20)<<"MiB block with "<<
 		N_THREADS<<" threads (BLK_SZ = "<<(BLK_SZ>>10)<<"KiB)..."<<std::endl;
 
-	float *_buffer; cudaMalloc(&_buffer, MEM_LIMIT*N_THREADS);
+	char *_buffer; cudaMalloc(&_buffer, MEM_LIMIT*N_THREADS);
 	std::size_t *_ret; cudaMalloc(&_ret, sizeof(std::size_t)*N_THREADS);
 
 	auto t1 = std::chrono::high_resolution_clock::now();
-	kernel_dummy<<<1, N_THREADS>>>(_buffer, _ret, MEM_LIMIT);
+	kernel_dummy<<<1, N_THREADS>>>(_buffer, _ret, MEM_LIMIT, BLK_SZ);
 	cudaDeviceSynchronize();
 	auto t2 = std::chrono::high_resolution_clock::now();
 	kernel_sum_ret<<<1, N_THREADS, N_THREADS*sizeof(std::size_t)>>>(_ret);
@@ -124,10 +130,10 @@ int main(int argc, char *argv[]){
 
 	ramdom_write(8 << 20);
 	ramdom_write(1 << 20);
-	ramdom_write(128 << 10);
-	ramdom_write(16 << 10);
-	ramdom_write(2 << 10);
-	ramdom_write(1 << 10);
+	// ramdom_write(128 << 10);
+	// ramdom_write(16 << 10);
+	// ramdom_write(2 << 10);
+	// ramdom_write(1 << 10);
 
 	// ramdom_read(512 << 10);
 	// ramdom_read(8 << 10);
